@@ -23,8 +23,12 @@ export async function POST(req: NextRequest) {
   }
 
   const { symbol, side, type, shares, limitPrice } = body;
-  if (!symbol || (side !== "buy" && side !== "sell") || !shares) {
+  const validSides = ["buy", "sell", "short", "cover"] as const;
+  if (!symbol || !validSides.includes(side as (typeof validSides)[number]) || !shares) {
     return NextResponse.json({ ok: false, error: "Missing symbol, side or shares" }, { status: 400 });
+  }
+  if (type === "limit" && side !== "buy" && side !== "sell") {
+    return NextResponse.json({ ok: false, error: "Limit orders support buy and sell only" }, { status: 400 });
   }
 
   await tick();
@@ -32,8 +36,8 @@ export async function POST(req: NextRequest) {
 
   const result =
     type === "limit"
-      ? await placeLimitOrder(user.id, symbol, side, Math.floor(shares), Number(limitPrice))
-      : await executeMarketOrder(user.id, symbol, side, Math.floor(shares));
+      ? await placeLimitOrder(user.id, symbol, side as "buy" | "sell", Math.floor(shares), Number(limitPrice))
+      : await executeMarketOrder(user.id, symbol, side as "buy" | "sell" | "short" | "cover", Math.floor(shares));
 
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

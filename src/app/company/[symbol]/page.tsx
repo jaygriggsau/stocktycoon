@@ -39,6 +39,8 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
 
   const change = c.prevClose > 0 ? c.price / c.prevClose - 1 : 0;
   const delisted = c.status !== "active";
+  const acquired = c.status === "acquired";
+  const RATING_LABELS = ["", "Sell", "Underperform", "Hold", "Buy", "Strong Buy"];
 
   return (
     <div className="space-y-5">
@@ -49,7 +51,8 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
           </h1>
           <p className="text-sm text-ink-muted">
             {c.sector} · listed day {c.listedDay}
-            {delisted && <span className="ml-2 rounded bg-loss/20 px-2 py-0.5 text-loss">BANKRUPT — delisted day {c.delistedDay}</span>}
+            {delisted && !acquired && <span className="ml-2 rounded bg-loss/20 px-2 py-0.5 text-loss">BANKRUPT — delisted day {c.delistedDay}</span>}
+            {acquired && <span className="ml-2 rounded bg-accent/20 px-2 py-0.5 text-accent">ACQUIRED — day {c.delistedDay}</span>}
           </p>
         </div>
         {!delisted && (
@@ -82,6 +85,8 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
             <Stat label="Volatility (daily)" value={fmtPct(c.volatility)} />
             <Stat label="Shares out" value={fmtCompact(c.sharesOutstanding).replace("$", "")} />
             <Stat label="Prev close" value={fmtMoney(c.prevClose)} />
+            <Stat label="Analyst rating" value={RATING_LABELS[c.analystRating] ?? "Hold"} />
+            <Stat label="Price target" value={c.priceTarget > 0 ? fmtMoney(c.priceTarget) : "—"} />
           </div>
 
           <div className="rounded-lg border border-edge bg-panel p-4 text-sm text-ink-muted">
@@ -108,8 +113,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
         <div className="space-y-4">
           {delisted ? (
             <div className="rounded-lg border border-edge bg-panel p-4 text-sm text-ink-muted">
-              This company went bankrupt. Shares were wiped out. The market moves on —{" "}
-              <Link href="/market" className="text-accent">find the next winner</Link>.
+              {acquired
+                ? `This company was acquired at ${fmtMoney(c.price)} per share — holders were cashed out at the deal price. `
+                : "This company went bankrupt. Shares were wiped out. "}
+              The market moves on — <Link href="/market" className="text-accent">find the next winner</Link>.
             </div>
           ) : (
             <TradePanel symbol={c.symbol} price={c.price} signedIn={!!user} ownedShares={ownedShares} cash={cash} />

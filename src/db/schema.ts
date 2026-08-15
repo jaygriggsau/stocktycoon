@@ -77,6 +77,11 @@ export const companies = pgTable(
     // Day-of-cycle offset so earnings reports are staggered across the quarter.
     earningsOffset: integer("earnings_offset").notNull().default(0),
     distressDays: integer("distress_days").notNull().default(0),
+
+    // Analyst coverage: 1=Sell 2=Underperform 3=Hold 4=Buy 5=Strong Buy
+    analystRating: integer("analyst_rating").notNull().default(3),
+    priceTarget: doublePrecision("price_target").notNull().default(0),
+    ratedDay: integer("rated_day").notNull().default(0),
   },
   (t) => [
     uniqueIndex("companies_symbol_idx").on(t.symbol),

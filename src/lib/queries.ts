@@ -221,6 +221,8 @@ export async function getCompany(symbol: string) {
     dividendYield: Number(c.dividend_yield),
     pe: Number(c.earnings) > 0 ? (Number(c.price) * Number(c.shares_outstanding)) / Number(c.earnings) : null,
     eps: Number(c.earnings) / Number(c.shares_outstanding),
+    analystRating: Number(c.analyst_rating ?? 3),
+    priceTarget: Number(c.price_target ?? 0),
     bars: (bars as Record<string, unknown>[])
       .map((b) => ({
         day: Number(b.day),
@@ -260,9 +262,10 @@ export async function getPortfolio(userId: string) {
   const p = (playerRows as Record<string, unknown>[])[0];
 
   const holdings = (holdingRows as Record<string, unknown>[]).map((h) => {
-    const shares = Number(h.shares);
+    const shares = Number(h.shares); // negative = short position
     const price = Number(h.price);
     const avgCost = Number(h.avg_cost);
+    const unrealized = (price - avgCost) * shares; // signed math covers shorts
     return {
       symbol: h.symbol as string,
       name: h.name as string,
@@ -272,13 +275,16 @@ export async function getPortfolio(userId: string) {
       price,
       value: shares * price,
       dayChange: Number(h.prev_close) > 0 ? price / Number(h.prev_close) - 1 : 0,
-      unrealized: (price - avgCost) * shares,
-      unrealizedPct: avgCost > 0 ? price / avgCost - 1 : 0,
+      unrealized,
+      unrealizedPct: avgCost > 0 ? unrealized / (avgCost * Math.abs(shares)) : 0,
     };
   });
 
   const cash = Number(p.cash);
   const holdingsValue = holdings.reduce((s, h) => s + h.value, 0);
+  const longValue = holdings.reduce((s, h) => s + Math.max(0, h.value), 0);
+  const shortExposure = holdings.reduce((s, h) => s + Math.max(0, -h.value), 0);
+  const equity = cash + longValue - shortExposure;
 
   return {
     displayName: p.display_name as string,
@@ -288,6 +294,10 @@ export async function getPortfolio(userId: string) {
     totalDividends: Number(p.total_dividends),
     netWorth: cash + holdingsValue,
     holdingsValue,
+    longValue,
+    shortExposure,
+    equity,
+    marginUsage: shortExposure > 0 ? equity / shortExposure : null,
     holdings,
     openOrders: (orderRows as Record<string, unknown>[]).map((o) => ({
       id: Number(o.id),

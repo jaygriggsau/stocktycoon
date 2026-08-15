@@ -11,6 +11,9 @@ const KIND_LABELS: Record<string, string> = {
   sector: "Sector",
   macro: "Macro",
   company: "Company",
+  merger: "M&A",
+  split: "Split",
+  rating: "Analysts",
 };
 
 export default async function NewsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {

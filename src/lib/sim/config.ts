@@ -26,3 +26,8 @@ export const NEWS_RETENTION_DAYS = 120;
 export const BASE_SPREAD = 0.0005; // 5 bps half-spread on market orders
 export const MAX_IMPACT = 0.02; // price impact cap
 export const MIN_PRICE = 0.01;
+
+// Short selling margin: equity must cover INITIAL_MARGIN of short exposure to
+// open a short; below MAINTENANCE_MARGIN the daily tick force-covers positions.
+export const INITIAL_MARGIN = 0.3;
+export const MAINTENANCE_MARGIN = 0.15;

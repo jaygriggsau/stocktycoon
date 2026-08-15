@@ -13,6 +13,9 @@ Built with **Next.js (App Router) + TypeScript**, **Neon Postgres** (via the ser
 - **Dividends**: mature profitable companies pay quarterly dividends straight into holders' cash.
 - **Failure**: companies in sustained distress (penny-stock prices, negative earnings, empty coffers) go bankrupt — shares are wiped to zero, holdings written off, orders cancelled, news published.
 - **Renewal**: IPOs replenish the market toward 5,000 listed companies, with occasional net-new listings.
+- **M&A**: large cash-rich companies occasionally acquire smaller ones at a 20-50% premium — long holders are cashed out at the deal price, shorts are forced to cover at it.
+- **Splits**: stocks that run past $900 split 4-for-1 (10-for-1 past $3,000); holdings, orders, and full price history are adjusted.
+- **Analyst coverage**: every company carries a rating (Sell → Strong Buy) and a price target derived from fundamental fair value; a slice of the market is re-rated daily and big upgrades/downgrades of large caps make the news.
 - **News**: macro shocks, sector events, earnings, company events, IPOs, and bankruptcies all generate a live news feed with real price impact.
 
 ## Gameplay
@@ -21,6 +24,7 @@ Built with **Next.js (App Router) + TypeScript**, **Neon Postgres** (via the ser
 - **Market screener**: search, sector filter, sortable columns (price, change, market cap, P/E, dividend yield), plus a bankruptcy graveyard
 - **Company pages**: candlestick chart with volume, full fundamentals, company news, trade panel
 - **Orders**: market orders (instant fill with spread + square-root size impact) and limit orders (filled when the daily price crosses your limit)
+- **Short selling**: borrow and sell with 30% initial margin; accounts below 15% maintenance margin are force-covered at a penalty on the daily tick. Shorts pay dividends, profit fully from bankruptcies, and eat the premium in buyouts
 - **Portfolio**: holdings with live P/L, net-worth history chart, dividends, realized P/L, open orders, trade log
 - **Leaderboard**: top 100 players by net worth
 

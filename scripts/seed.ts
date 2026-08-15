@@ -115,6 +115,24 @@ async function main() {
     WHERE pb.company_id = c.id AND pb.day = ${BACKFILL_DAYS}
   `);
 
+  console.log("Initializing analyst coverage...");
+  await sql(`
+    UPDATE companies SET
+      price_target = round((GREATEST(0.5,
+        (CASE WHEN earnings > 0 THEN earnings * (14 + GREATEST(0, growth_rate) * 50)
+              ELSE revenue * 0.8 END) / shares_outstanding
+      ) * (0.85 + random() * 0.4))::numeric, 2),
+      rated_day = ${BACKFILL_DAYS}
+  `);
+  await sql(`
+    UPDATE companies SET analyst_rating =
+      CASE WHEN price_target / price - 1 > 0.25 THEN 5
+           WHEN price_target / price - 1 > 0.08 THEN 4
+           WHEN price_target / price - 1 > -0.08 THEN 3
+           WHEN price_target / price - 1 > -0.25 THEN 2
+           ELSE 1 END
+  `);
+
   console.log("Building index history...");
   await sql(`
     INSERT INTO index_bars (index_key, day, value)

@@ -53,6 +53,30 @@ export default async function PortfolioPage() {
         </div>
       </div>
 
+      {p.shortExposure > 0 && (
+        <div
+          className={`rounded-lg border p-4 text-sm ${
+            p.marginUsage !== null && p.marginUsage < 0.2 ? "border-loss/60 bg-loss/10" : "border-edge bg-panel"
+          }`}
+        >
+          <div className="mb-1 flex items-center justify-between">
+            <span className="font-semibold">Margin (short positions)</span>
+            {p.marginUsage !== null && p.marginUsage < 0.2 && (
+              <span className="rounded bg-loss/20 px-2 py-0.5 text-xs font-semibold text-loss">⚠ NEAR MARGIN CALL</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted sm:grid-cols-4">
+            <div>Short exposure <div className="text-sm font-medium text-ink">{fmtMoney(p.shortExposure)}</div></div>
+            <div>Account equity <div className="text-sm font-medium text-ink">{fmtMoney(p.equity)}</div></div>
+            <div>Equity / exposure <div className="text-sm font-medium text-ink">{p.marginUsage !== null ? (p.marginUsage * 100).toFixed(1) + "%" : "—"}</div></div>
+            <div>Maintenance floor <div className="text-sm font-medium text-ink">15%</div></div>
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
+            If equity falls below 15% of short exposure, positions are force-covered at a penalty on the next market day.
+          </p>
+        </div>
+      )}
+
       <div className="rounded-lg border border-edge bg-panel p-4">
         <h2 className="mb-2 text-sm font-semibold text-ink-muted">Net worth history</h2>
         <LineChart
@@ -88,6 +112,9 @@ export default async function PortfolioPage() {
               <tr key={h.symbol} className="border-b border-edge/40 last:border-0 hover:bg-panel-hover">
                 <td className="px-3 py-1.5">
                   <Link href={`/company/${h.symbol}`} className="font-semibold text-accent">{h.symbol}</Link>
+                  {h.shares < 0 && (
+                    <span className="ml-1.5 rounded bg-loss/20 px-1.5 py-0.5 text-[10px] font-semibold text-loss">SHORT</span>
+                  )}
                   <span className="ml-2 hidden text-xs text-ink-muted lg:inline">{h.name.slice(0, 24)}</span>
                 </td>
                 <td className="px-3 py-1.5 text-right">{h.shares.toLocaleString()}</td>
@@ -128,7 +155,7 @@ export default async function PortfolioPage() {
             {p.recentTrades.length === 0 && <li className="px-4 py-3 text-ink-muted">No trades yet.</li>}
             {p.recentTrades.map((t, i) => (
               <li key={i} className="flex items-center gap-3 px-4 py-2">
-                <span className={`text-xs font-semibold uppercase ${t.side === "buy" ? "text-gain" : "text-loss"}`}>{t.side}</span>
+                <span className={`text-xs font-semibold uppercase ${t.side === "buy" || t.side === "cover" ? "text-gain" : "text-loss"}`}>{t.side}</span>
                 <Link href={`/company/${t.symbol}`} className="font-medium text-accent">{t.symbol}</Link>
                 <span className="flex-1 text-ink-muted">
                   {t.shares.toLocaleString()} @ {fmtMoney(t.price)} · D{t.day}
