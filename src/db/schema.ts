@@ -25,6 +25,10 @@ export const marketState = pgTable("market_state", {
   regimeDrift: doublePrecision("regime_drift").notNull().default(0.0002),
   regimeLabel: text("regime_label").notNull().default("neutral"),
   interestRate: doublePrecision("interest_rate").notNull().default(0.04),
+  // Lease held by whichever invocation is currently advancing the market.
+  // Serverless requests are stateless, so session advisory locks don't apply;
+  // this expiring lease keeps concurrent bulk updates from deadlocking.
+  tickLockUntil: timestamp("tick_lock_until"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

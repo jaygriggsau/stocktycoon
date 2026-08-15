@@ -15,6 +15,13 @@
       "when": 1786773786351,
       "tag": "0001_analyst_coverage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786785288333,
+      "tag": "0002_tick_lease",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,7 @@ import {
   NEWS_RETENTION_DAYS,
   MIN_PRICE,
   MAINTENANCE_MARGIN,
+  TICK_LEASE_SECONDS,
 } from "./config";
 import { generateCompanies, SECTOR_DEFS } from "./names";
 
@@ -23,10 +24,17 @@ interface MarketStateRow {
  * Advance the simulation to the current wall-clock time.
  *
  * The market is anchored to a fixed epoch: target day = floor((now - epoch) / DAY_MS).
- * Each missing day is claimed with a compare-and-set on market_state.market_day so
- * concurrent serverless invocations never double-simulate a day. Catch-up is capped
- * per request; if the app has been idle for a long time, the market catches up
- * incrementally across the next few requests.
+ *
+ * Concurrency: a per-day compare-and-set alone is not enough. Two invocations can
+ * claim *different* days and then run their bulk `UPDATE companies` at the same
+ * time, which touches the same 5,000 rows in different orders and deadlocks. So a
+ * single ticker at a time holds an expiring lease in market_state; everyone else
+ * returns the current day immediately and renders against it. The lease expires on
+ * its own, so a crashed invocation cannot wedge the market. The per-day CAS is kept
+ * as a second line of defence.
+ *
+ * Catch-up is capped per request; after a long idle the market closes the gap
+ * incrementally over the next few requests.
  */
 export async function advanceMarket(): Promise<number> {
   const rows = (await sql`SELECT market_day, epoch_ms, regime_drift, regime_label, interest_rate FROM market_state WHERE id = 1`) as MarketStateRow[];
@@ -37,21 +45,37 @@ export async function advanceMarket(): Promise<number> {
   let day = state.market_day;
   if (targetDay <= day) return day;
 
+  // Take the ticking lease. If someone else holds it, serve the current day.
+  const lease = (await sql`
+    UPDATE market_state
+    SET tick_lock_until = now() + make_interval(secs => ${TICK_LEASE_SECONDS})
+    WHERE id = 1 AND (tick_lock_until IS NULL OR tick_lock_until < now())
+    RETURNING market_day`) as { market_day: number }[];
+  if (lease.length === 0) return day;
+
+  // Re-read under the lease: the previous holder may have advanced the market.
+  day = Number(lease[0].market_day);
   const stopAt = Math.min(targetDay, day + MAX_CATCHUP_DAYS);
   let regimeDrift = state.regime_drift;
   let regimeLabel = state.regime_label;
 
-  while (day < stopAt) {
-    const next = day + 1;
-    // Claim the day (CAS). If another invocation got it first, stop here.
-    const claimed = await sql`
-      UPDATE market_state SET market_day = ${next}, updated_at = now()
-      WHERE id = 1 AND market_day = ${day}
-      RETURNING market_day`;
-    if (claimed.length === 0) break;
+  try {
+    while (day < stopAt) {
+      const next = day + 1;
+      // Claim the day (CAS). If another invocation got it first, stop here.
+      const claimed = await sql`
+        UPDATE market_state SET market_day = ${next}, updated_at = now()
+        WHERE id = 1 AND market_day = ${day}
+        RETURNING market_day`;
+      if (claimed.length === 0) break;
 
-    ({ regimeDrift, regimeLabel } = await simulateDay(next, regimeDrift, regimeLabel));
-    day = next;
+      ({ regimeDrift, regimeLabel } = await simulateDay(next, regimeDrift, regimeLabel));
+      day = next;
+    }
+  } finally {
+    // Release early so the next request can continue the catch-up immediately;
+    // if this fails the lease simply expires on its own.
+    await safe("release tick lease", () => sql`UPDATE market_state SET tick_lock_until = NULL WHERE id = 1`);
   }
   return day;
 }

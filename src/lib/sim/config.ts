@@ -8,6 +8,11 @@ export const DAY_MS = Number(process.env.SIM_DAY_MS ?? 5 * 60 * 1000);
 // catching up after idle periods; the market keeps catching up on later hits).
 export const MAX_CATCHUP_DAYS = 15;
 
+// How long one invocation may hold the ticking lease before others may take
+// over. Comfortably longer than a full catch-up batch, short enough that a
+// crashed invocation stalls the market only briefly.
+export const TICK_LEASE_SECONDS = 60;
+
 // Target number of listed companies. IPOs replenish toward this.
 export const TARGET_COMPANIES = 5000;
 

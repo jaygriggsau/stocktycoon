@@ -1,0 +1,1 @@
+ALTER TABLE "market_state" ADD COLUMN "tick_lock_until" timestamp;
