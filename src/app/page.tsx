@@ -53,7 +53,7 @@ export default async function Home() {
 
       <section className="rounded-lg border border-edge bg-panel p-4">
         <h2 className="mb-2 text-sm font-semibold text-ink-muted">TYCOON Composite — last {m.composite.length} days</h2>
-        <LineChart data={m.composite} valueFormat={(v) => v.toFixed(1)} />
+        <LineChart data={m.composite} valueFormat="index" />
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">

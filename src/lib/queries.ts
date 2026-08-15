@@ -61,10 +61,12 @@ export async function getMarketOverview(): Promise<MarketOverview> {
     sql`SELECT symbol, name, price, prev_close, price / NULLIF(prev_close, 0) - 1 AS change, price * shares_outstanding AS market_cap
         FROM companies WHERE status = 'active' AND prev_close > 0 AND price * shares_outstanding > 5e7
         ORDER BY change ASC LIMIT 8`,
+    // Join the most recent day that actually has bars — the current market day
+    // may still be mid-write (or have been skipped), which would empty this list.
     sql`SELECT c.symbol, c.name, c.price, c.prev_close, c.price / NULLIF(c.prev_close, 0) - 1 AS change,
                c.price * c.shares_outstanding AS market_cap, pb.volume
         FROM companies c
-        JOIN price_bars pb ON pb.company_id = c.id AND pb.day = (SELECT market_day FROM market_state WHERE id = 1)
+        JOIN price_bars pb ON pb.company_id = c.id AND pb.day = (SELECT max(day) FROM price_bars)
         WHERE c.status = 'active'
         ORDER BY pb.volume * c.price DESC LIMIT 8`,
     sql`SELECT count(*)::int AS n FROM companies WHERE status = 'active'`,

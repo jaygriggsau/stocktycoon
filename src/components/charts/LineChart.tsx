@@ -1,19 +1,32 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { fmtCompact, fmtMoney } from "@/lib/format";
 
 interface Point {
   day: number;
   value: number;
 }
 
+/**
+ * Axis/tooltip number format. This is a string key rather than a function
+ * because a Server Component cannot pass functions across the client boundary.
+ */
+export type ValueFormat = "index" | "compact" | "money";
+
 interface Props {
   data: Point[];
   height?: number;
   color?: string; // defaults to accent; pass gain/loss for signed series
-  valueFormat?: (v: number) => string;
+  valueFormat?: ValueFormat;
   baseline?: number; // optional reference line (e.g. starting cash)
 }
+
+const FORMATTERS: Record<ValueFormat, (v: number) => string> = {
+  index: (v) => v.toFixed(1),
+  compact: (v) => fmtCompact(v),
+  money: (v) => fmtMoney(v),
+};
 
 /**
  * Single-series SVG line chart with area fill, recessive grid,
@@ -26,7 +39,7 @@ export function LineChart({ data, height = 220, color, valueFormat, baseline }: 
   const H = height;
   const PAD = { l: 8, r: 56, t: 10, b: 20 };
 
-  const fmt = valueFormat ?? ((v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 2 }));
+  const fmt = FORMATTERS[valueFormat ?? "index"];
 
   const model = useMemo(() => {
     if (data.length < 2) return null;

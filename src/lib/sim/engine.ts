@@ -56,6 +56,20 @@ export async function advanceMarket(): Promise<number> {
   return day;
 }
 
+/**
+ * Run an optional "flavor" step (news, corporate actions, analyst coverage).
+ * A day is claimed via CAS before it is simulated, so a throw here would leave
+ * that day permanently half-written. Core state — prices, bars, indices — must
+ * never depend on these, so their failures are logged and swallowed.
+ */
+async function safe(label: string, fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn();
+  } catch (e) {
+    console.error(`sim step "${label}" failed`, e);
+  }
+}
+
 /** Run one full market day. All heavy lifting is set-based SQL. */
 async function simulateDay(
   day: number,
@@ -87,18 +101,21 @@ async function simulateDay(
   await sql`UPDATE sectors SET momentum = momentum * 0.96 + (random() - 0.5) * 0.0035`;
 
   // Occasional sector-wide news event with real price impact.
+  // Note: decide the phrasing in JS. Comparing a bound parameter against an
+  // integer literal in SQL makes Postgres infer the parameter as `integer`,
+  // which rejects fractional impacts.
   if (Math.random() < 0.12) {
     const impact = (Math.random() - 0.5) * 0.05;
-    await sql`
+    const phrase =
+      impact > 0 ? " sector surges on strong demand outlook" : " sector slides amid supply concerns";
+    await safe("sector news", () =>
+      sql`
       WITH s AS (SELECT id, name FROM sectors ORDER BY random() LIMIT 1),
-      bump AS (UPDATE sectors SET momentum = momentum + ${impact / 8} FROM s WHERE sectors.id = s.id RETURNING s.name)
+      bump AS (UPDATE sectors SET momentum = momentum + ${impact / 8}::double precision FROM s WHERE sectors.id = s.id RETURNING s.name)
       INSERT INTO news_items (day, kind, headline, sector_id, price_impact)
-      SELECT ${day}, 'sector',
-             CASE WHEN ${impact} > 0
-               THEN name || ' sector surges on strong demand outlook'
-               ELSE name || ' sector slides amid supply concerns' END,
-             id, ${impact}
-      FROM s`;
+      SELECT ${day}, 'sector', name || ${phrase}, id, ${impact}::double precision
+      FROM s`
+    );
   }
 
   // ---- 3. Daily price update: GBM + factor model + value anchoring ----
@@ -160,7 +177,8 @@ async function simulateDay(
     WHERE abs(s.surprise) > 0.025`;
 
   // ---- 6. Idiosyncratic company news (a handful per day) ----
-  await sql`
+  await safe("company news", () =>
+    sql`
     WITH targets AS (
       SELECT id, symbol, name, (random() - 0.5) * 0.12 AS impact
       FROM companies WHERE status = 'active' ORDER BY random() LIMIT 6
@@ -177,12 +195,14 @@ async function simulateDay(
                 WHEN impact > -0.05 THEN 'faces analyst downgrade'
                 ELSE 'hit by lawsuit and executive departures; shares tumble' END,
            id, impact
-    FROM targets`;
+    FROM targets`
+  );
 
   // ---- 6b. Analyst coverage: re-rate a slice of the market each day ----
   // Targets derive from fundamental fair value with analyst noise; big rating
   // jumps make the news.
-  await sql`
+  await safe("analyst ratings", () =>
+    sql`
     WITH picks AS (
       SELECT id, symbol, name, price, shares_outstanding, earnings, revenue, growth_rate, analyst_rating
       FROM companies
@@ -218,7 +238,8 @@ async function simulateDay(
       CASE new_rating WHEN 5 THEN 'Strong Buy' WHEN 4 THEN 'Buy' WHEN 3 THEN 'Hold' WHEN 2 THEN 'Underperform' ELSE 'Sell' END,
       id
     FROM rated
-    WHERE abs(new_rating - old_rating) >= 2 AND price * shares_outstanding > 1e9`;
+    WHERE abs(new_rating - old_rating) >= 2 AND price * shares_outstanding > 1e9`
+  );
 
   // ---- 7. Dividends: quarterly, staggered mid-cycle ----
   await sql`
@@ -274,7 +295,8 @@ async function simulateDay(
   // Long holders are cashed out at a premium; shorts are forced to cover at
   // the deal price (signed share math handles both in one statement).
   if (Math.random() < 0.06) {
-    await sql`
+    await safe("m&a", () =>
+      sql`
       WITH target AS (
         SELECT id, symbol, name, price, shares_outstanding, sector_id,
                price * shares_outstanding AS cap
@@ -324,11 +346,13 @@ async function simulateDay(
       SELECT ${day}, 'merger',
         acq_name || ' (' || acq_symbol || ') acquires ' || name || ' (' || symbol || ') for $' || payout || ' per share',
         id, payout / price - 1
-      FROM deal`;
+      FROM deal`
+    );
   }
 
   // ---- 8c. Stock splits: keep runaway share prices in a tradable range ----
-  await sql`
+  await safe("splits", () =>
+    sql`
     WITH cand AS (
       SELECT id, symbol, name, price FROM companies
       WHERE status = 'active' AND price > 900 LIMIT 10
@@ -355,7 +379,8 @@ async function simulateDay(
     )
     INSERT INTO news_items (day, kind, headline, company_id)
     SELECT ${day}, 'split', name || ' (' || symbol || ') announces a ' || ratio || '-for-1 stock split', id
-    FROM s`;
+    FROM s`
+  );
 
   // ---- 9. IPOs: replenish the market toward TARGET_COMPANIES ----
   const [{ active }] = (await sql`SELECT count(*)::int AS active FROM companies WHERE status = 'active'`) as {

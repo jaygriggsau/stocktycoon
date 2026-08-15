@@ -5,7 +5,7 @@ import { getPortfolio } from "@/lib/queries";
 import { ensurePlayer } from "@/lib/trading";
 import { LineChart } from "@/components/charts/LineChart";
 import { CancelOrderButton } from "@/components/CancelOrderButton";
-import { fmtMoney, fmtPct, fmtCompact, changeClass } from "@/lib/format";
+import { fmtMoney, fmtPct, changeClass } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +82,7 @@ export default async function PortfolioPage() {
         <LineChart
           data={p.history.length ? p.history : [{ day: 0, value: p.startingCash }, { day: 1, value: p.netWorth }]}
           baseline={p.startingCash}
-          valueFormat={(v) => fmtCompact(v)}
+          valueFormat="compact"
         />
       </div>
 
