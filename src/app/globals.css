@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #0d1117;
+  --color-panel: #161b22;
+  --color-panel-hover: #1c2129;
+  --color-edge: #21262d;
+  --color-ink: #e6edf3;
+  --color-ink-muted: #8b949e;
+  --color-accent: #58a6ff;
+  --color-gain: #3fb950;
+  --color-loss: #f85149;
+  --color-warn: #d29922;
+}
+
+html {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-feature-settings: "tnum";
+}
+
+::selection {
+  background: rgba(88, 166, 255, 0.35);
+}
