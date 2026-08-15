@@ -2,11 +2,10 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL is not set");
-}
+// Fall back to a placeholder so `next build` succeeds without env vars;
+// real queries fail loudly at runtime until DATABASE_URL is configured.
+const connectionString =
+  process.env.DATABASE_URL ?? "postgresql://missing:missing@missing-database-url.invalid/neondb";
 
 export const sql = neon(connectionString);
 export const db = drizzle(sql, { schema });
