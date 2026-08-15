@@ -5,10 +5,10 @@ import { createNeonAuth } from "@neondatabase/auth/next/server";
 // at runtime until NEON_AUTH_BASE_URL / NEON_AUTH_COOKIE_SECRET are set.
 export const auth = createNeonAuth({
   baseUrl:
-    process.env.NEON_AUTH_BASE_URL ??
+    process.env.NEON_AUTH_BASE_URL?.trim() ||
     "https://missing-neon-auth-base-url.invalid/neondb/auth",
   cookies: {
-    secret: process.env.NEON_AUTH_COOKIE_SECRET ?? "placeholder-secret-at-least-32-characters",
+    secret: process.env.NEON_AUTH_COOKIE_SECRET?.trim() || "placeholder-secret-at-least-32-characters",
   },
 });
 
